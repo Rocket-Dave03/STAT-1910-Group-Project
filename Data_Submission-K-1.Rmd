@@ -117,6 +117,48 @@ _How many rows/cases are in the data i.e. what is the sample size? Is the sample
 
 ## Pare down variables
 
+
+```{r fix-format}
+
+# Remove Unnecessary variables as well as reformat the data to a more usable layout
+
+grad_data_raw <- read.csv("37100038.csv")
+grad_data_raw <- grad_data_raw |> janitor::clean_names()
+grad_data <- grad_data_raw |>
+  filter(statistics == "Number of graduates") # remove duplicate rows
+grad_data_initial <- grad_data |> dplyr::select(ref_date | geo | level_of_study)
+cols <- c("Number of graduates", "Average debt owed at graduation", "Percentage of graduates with large debt at graduation ($25,000 and over)", "Average debt owed at time of interview", "Percentage of graduates with large debt at time of interview ($25,000 and over)", "Percentage of debt paid off at time of interview") # Source names for what will become columns
+cols_nice <- c("num_grads", "avg_debt", "percent_debt_grad_large", "avg_debt_interview", "percent_debt_interview_large", "percent_debt_payed_interview")
+
+get_output_row <- function(i) {
+  row <- grad_data_initial[i,]
+    current_observation <- grad_data_raw |>
+      filter(ref_date == row$ref_date & geo == row$geo & level_of_study == row$level_of_study)
+    vals = numeric(length(cols))
+    names(vals) <- cols
+    for(j in 1:length(cols)) {
+      var <- cols[j]
+      tmp <- current_observation |> 
+        filter(statistics == var)
+      row[cols_nice[j]] <- tmp$value
+      row <- row |> clean_names()
+    }
+    return (row)
+}
+
+grad_data_final<-data.frame(get_output_row(1),stringsAsFactors = F)
+for(i in 2:nrow(grad_data_initial)) {
+  grad_data_final <- grad_data_final |> rbind(get_output_row(i))
+}
+# Clean up temp variables
+rm(grad_data_initial)
+rm(grad_data)
+grad_data <- grad_data_final
+rm(grad_data_final)
+
+
+```
+
 _`select()` the following variables **in this order** and drop all others. Eliminating all unnecessary variables will making visually exploring the raw values less taxing mentally, as we'll have less data to look at._
 
 1. _The identification variable_
