@@ -254,7 +254,6 @@ load_data <- function() {
 ```{r temp-remove-later}
 # TODO: Remove This R chunk
 proj_data <- load_data()
-print(proj_data)
 ```
 
 _`select()` the following variables **in this order** and drop all others. Eliminating all unnecessary variables will making visually exploring the raw values less taxing mentally, as we'll have less data to look at._
