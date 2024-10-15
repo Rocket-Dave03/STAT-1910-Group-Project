@@ -1,7 +1,6 @@
-Number of graduates
-Women+
-Percent
-Average age at graduation
-Median age at graduation
-Under age 25 at graduation
-Pursued further postsecondary education between graduation and time of interview
+number_of_graduates
+women_percent
+avg_age_at_grad
+median_age_at_grad
+under_25_at_grad
+pursued_further_postsecondary
