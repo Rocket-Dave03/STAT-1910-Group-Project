@@ -244,6 +244,9 @@ load_data <- function() {
 	#merge into one table
 	final <- full_join(debt, grad)
 	final <- full_join(final, income)
+	final <- final |>
+		mutate(id = row_number()) |>
+		relocate(id, .before = ref_date)
 
 	return(final)
 }
