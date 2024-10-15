@@ -118,45 +118,97 @@ _How many rows/cases are in the data i.e. what is the sample size? Is the sample
 ## Pare down variables
 
 
-```{r fix-format}
 
+```{r reformat-decl}
+# TODO: Write this
+reformat <- function(raw_data, names_nice) {
+	data <- raw_data |>
+		filter(statistics == raw_data[1,"statistics"])
+	data_initial <- data |> dplyr::select(ref_date | geo | level_of_study)
+	var_names = c()
+	i <- 1
+	while(TRUE) {
+		name = raw_data[i,"statistics"]
+		if (name %in% var_names) {
+			break
+		}
+		var_names <- c(var_names, name)
+		i <- i+1
+	}
+	
+	get_output_row <- function(i) {
+	row <- data_initial[i,]
+	current_observation <- raw_data |>
+		filter(ref_date == row$ref_date & geo == row$geo & level_of_study == row$level_of_study)
+		vals = numeric(length(var_names))
+		names(vals) <- var_names
+	for (j in 1:length(var_names)) {
+			var <- var_names[j]
+			tmp <- current_observation |> 
+				filter(statistics == var)
+			row[names_nice[j]] <- tmp$value
+			row <- row |> clean_names()
+		}
+		return (row)
+	}
+	data_final<-data.frame(get_output_row(1),stringsAsFactors = F)
+	for(i in 2:nrow(data_initial)) {
+		data_final <- data_final |> rbind(get_output_row(i))
+	}
+	
+	return(data_final)
+}
+
+```
+
+
+```{r load_data_impl}
 # Remove Unnecessary variables as well as reformat the data to a more usable layout
 
-grad_data_raw <- read.csv("37100038.csv")
-grad_data_raw <- grad_data_raw |> janitor::clean_names()
-grad_data <- grad_data_raw |>
-  filter(statistics == "Number of graduates") # remove duplicate rows
-grad_data_initial <- grad_data |> dplyr::select(ref_date | geo | level_of_study)
-cols <- c("Number of graduates", "Average debt owed at graduation", "Percentage of graduates with large debt at graduation ($25,000 and over)", "Average debt owed at time of interview", "Percentage of graduates with large debt at time of interview ($25,000 and over)", "Percentage of debt paid off at time of interview") # Source names for what will become columns
-cols_nice <- c("num_grads", "avg_debt", "percent_debt_grad_large", "avg_debt_interview", "percent_debt_interview_large", "percent_debt_payed_interview")
-
-get_output_row <- function(i) {
-  row <- grad_data_initial[i,]
-    current_observation <- grad_data_raw |>
-      filter(ref_date == row$ref_date & geo == row$geo & level_of_study == row$level_of_study)
-    vals = numeric(length(cols))
-    names(vals) <- cols
-    for(j in 1:length(cols)) {
-      var <- cols[j]
-      tmp <- current_observation |> 
-        filter(statistics == var)
-      row[cols_nice[j]] <- tmp$value
-      row <- row |> clean_names()
-    }
-    return (row)
+load_individual_data <- function(name) {
+	filename <- paste(name, "csv", sep = ".")
+	cache_path <- file.path(".cache", filename)
+	data_path <- file.path("data", filename)
+	if (file.exists(cache_path)) {
+		grad <-read.csv(cache_path)
+	} else {
+		grad_data_raw <- read.csv(data_path)
+		grad_data_raw <- grad_data_raw|> janitor::clean_names()
+		grad <- reformat(
+			grad_data_raw, 
+			read_lines(
+				file.path(
+					"data", 
+					paste(name,"_names",sep="")
+				)
+			)
+		)
+		
+		dir.create(".cache", showWarnings = FALSE)
+		write_csv(grad, cache_path)
+	}
 }
 
-grad_data_final<-data.frame(get_output_row(1),stringsAsFactors = F)
-for(i in 2:nrow(grad_data_initial)) {
-  grad_data_final <- grad_data_final |> rbind(get_output_row(i))
+load_data <- function() {
+	debt <- load_individual_data("debt")
+	grad <- load_individual_data("graduation")
+	
+	# Income file has even weirder formatting
+	# TODO: Implement
+	
+	# Final Data
+	grad <- grad |>
+		select(!c(1,2,3))
+	debt <- debt |> cbind(grad)
+	# debt <- debt |> cbind(income)
+	return(debt)
 }
-# Clean up temp variables
-rm(grad_data_initial)
-rm(grad_data)
-grad_data <- grad_data_final
-rm(grad_data_final)
+```
 
-
+```{r temp-remove-later}
+# TODO: Remove This R chunk
+proj_data <- load_data()
+print(proj_data)
 ```
 
 _`select()` the following variables **in this order** and drop all others. Eliminating all unnecessary variables will making visually exploring the raw values less taxing mentally, as we'll have less data to look at._
