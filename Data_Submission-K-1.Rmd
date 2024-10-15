@@ -241,13 +241,11 @@ load_data <- function() {
 	
 	
 	# Final Data
-	grad <- grad[,-c(1:3)]
-	income <- income[,-c(1:3)]
 	#merge into one table
-	debt <- debt |> cbind(grad)
-	debt <- debt |> cbind(income)
-	print("Done")
-	return(debt)
+	final <- full_join(debt, grad)
+	final <- full_join(final, income)
+
+	return(final)
 }
 ```
 
