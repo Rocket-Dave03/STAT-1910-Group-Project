@@ -119,7 +119,7 @@ _How many rows/cases are in the data i.e. what is the sample size? Is the sample
 
 
 
-```{r reformat-decl}
+```{r reformat-decl, message=FALSE}
 # TODO: Write this
 reformat <- function(raw_data, names_nice) {
 	data <- raw_data |>
@@ -159,23 +159,64 @@ reformat <- function(raw_data, names_nice) {
 	return(data_final)
 }
 
+reformat_special <- function(raw_data, names_nice) {
+	data <- raw_data |>
+		filter(statistics == raw_data[1,"statistics"] & gender == raw_data[1,"gender"])
+	data_initial <- data |> dplyr::select(ref_date | geo | level_of_study)
+	
+	raw_data$statistics <- paste(raw_data$gender, raw_data$statistics)
+	
+	var_names = c()
+	i <- 1
+	while(TRUE) {
+		name = raw_data[i,"statistics"]
+		if (name %in% var_names) {
+			break
+		}
+		var_names <- c(var_names, name)
+		i <- i+1
+	}
+	
+	get_output_row <- function(i) {
+		row <- data_initial[i,]
+		current_observation <- raw_data |>
+		filter(ref_date == row$ref_date & geo == row$geo & level_of_study == row$level_of_study)
+		vals = numeric(length(var_names))
+		names(vals) <- var_names
+		for (j in 1:length(var_names)) {
+			var <- var_names[j]
+			tmp <- current_observation |> 
+				filter(statistics == var)
+			row[names_nice[j]] <- tmp$value
+			row <- row |> clean_names()
+		}
+		return (row)
+	}
+	data_final<-data.frame(get_output_row(1),stringsAsFactors = F)
+	for(i in 2:nrow(data_initial)) {
+		data_final <- data_final |> rbind(get_output_row(i))
+	}
+	
+	return(data_final)
+}
+
 ```
 
 
-```{r load_data_impl}
-# Remove Unnecessary variables as well as reformat the data to a more usable layout
+```{r load_data_impl, message=FALSE}
 
-load_individual_data <- function(name) {
+# Load from cache if possible as the full operation takes 10+ seconds per file
+load_individual_data <- function(reformat_fn, name) {
 	filename <- paste(name, "csv", sep = ".")
 	cache_path <- file.path(".cache", filename)
 	data_path <- file.path("data", filename)
 	if (file.exists(cache_path)) {
-		grad <-read.csv(cache_path)
+		data <- read.csv(cache_path)
 	} else {
-		grad_data_raw <- read.csv(data_path)
-		grad_data_raw <- grad_data_raw|> janitor::clean_names()
-		grad <- reformat(
-			grad_data_raw, 
+		data_raw <- read.csv(data_path)
+		data_raw <- data_raw |> janitor::clean_names()
+		data <- reformat_fn(
+			data_raw, 
 			read_lines(
 				file.path(
 					"data", 
@@ -185,22 +226,27 @@ load_individual_data <- function(name) {
 		)
 		
 		dir.create(".cache", showWarnings = FALSE)
-		write_csv(grad, cache_path)
+		write_csv(data, cache_path)
+		print(paste("Done processing", name))
 	}
+	
+	return(data)
 }
 
 load_data <- function() {
-	debt <- load_individual_data("debt")
-	grad <- load_individual_data("graduation")
+	print("Loading data")
+	debt <- load_individual_data(reformat, "debt")
+	grad <- load_individual_data(reformat, "graduation")
+	income <- load_individual_data(reformat_special, "income")
 	
-	# Income file has even weirder formatting
-	# TODO: Implement
 	
 	# Final Data
-	grad <- grad |>
-		select(!c(1,2,3))
+	grad <- grad[,-c(1:3)]
+	income <- income[,-c(1:3)]
+	#merge into one table
 	debt <- debt |> cbind(grad)
-	# debt <- debt |> cbind(income)
+	debt <- debt |> cbind(income)
+	print("Done")
 	return(debt)
 }
 ```
